@@ -1,0 +1,5 @@
+name: 'Media Private Access'
+type: module
+description: 'Enhances access checks to media entities.'
+package: Media
+core: 8.x
