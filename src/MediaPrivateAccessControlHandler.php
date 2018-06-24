@@ -93,7 +93,9 @@ class MediaPrivateAccessControlHandler extends MediaAccessControlHandler impleme
   protected function checkAccess(EntityInterface $entity, $operation, AccountInterface $account) {
     // Administrators don't need to go through all this.
     if ($account->hasPermission('administer media')) {
-      return AccessResult::allowed()->cachePerPermissions();
+      return AccessResult::allowed()
+        ->cachePerPermissions()
+        ->addCacheableDependency($entity);
     }
 
     // Update and delete operations are managed by the original handler.
@@ -139,7 +141,6 @@ class MediaPrivateAccessControlHandler extends MediaAccessControlHandler impleme
         // If entity_usage is not available or not the correct version, log an
         // error message and deny access.
         $tracking_available = FALSE;
-        $usage_service = NULL;
         if ($this->moduleHandler->moduleExists('entity_usage')) {
           $usage_service = \Drupal::service('entity_usage.usage');
           if (method_exists($usage_service, 'listSources')) {
@@ -181,6 +182,7 @@ class MediaPrivateAccessControlHandler extends MediaAccessControlHandler impleme
         }
         return AccessResult::forbidden('Access to this media asset is restricted to administrators and owners.');
 
+      case self::MEDIA_PRIVATE_ACCESS_DEFAULT:
       default:
         return parent::checkAccess($entity, $operation, $account);
     }

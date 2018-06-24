@@ -118,7 +118,7 @@ class MediaPrivateAccessSettingsForm extends ConfigFormBase {
         '#type' => 'select',
         '#title' => $type->label(),
         '#options' => $options,
-        '#default_value' => isset($modes[$type->id()]) ? $modes[$type->id()] : 'default',
+        '#default_value' => isset($modes[$type->id()]) ? $modes[$type->id()] : MediaPrivateAccessControlHandler::MEDIA_PRIVATE_ACCESS_DEFAULT,
       ];
     }
 
