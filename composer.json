@@ -4,7 +4,7 @@
   "type": "drupal-module",
   "license": "GPL-2.0",
   "require": {
-    "drupal/media": "~8.5"
+    "drupal/core": "~8.5"
   },
   "require-dev": {
     "drupal/entity_usage": "2.x-dev"
