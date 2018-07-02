@@ -10,13 +10,15 @@ use Drupal\media_private_access\MediaPrivateAccessControlHandler;
 use Drupal\node\Entity\Node;
 use Drupal\Tests\media\Functional\MediaFunctionalTestBase;
 use Drupal\Tests\node\Traits\ContentTypeCreationTrait;
+use Drupal\user\Entity\Role;
+use Drupal\user\RoleInterface;
 
 /**
- * Tests related to the Inherited-from-route access mode.
+ * Tests related to the Inherited-from-parent access mode.
  *
  * @group media_private_access
  */
-class MediaPrivateAccessInheritFromRouteAccessTest extends MediaFunctionalTestBase {
+class MediaPrivateAccessInheritFromParentAccessTest extends MediaFunctionalTestBase {
 
   use ContentTypeCreationTrait;
 
@@ -41,6 +43,7 @@ class MediaPrivateAccessInheritFromRouteAccessTest extends MediaFunctionalTestBa
     'node',
     'block',
     'media_test_source',
+    'entity_usage',
     'media_private_access',
   ];
 
@@ -56,9 +59,9 @@ class MediaPrivateAccessInheritFromRouteAccessTest extends MediaFunctionalTestBa
   }
 
   /**
-   * Test the "inherited from route" media access mode.
+   * Test the "inherited from parent" media access mode.
    */
-  public function testInheritedFromRouteMediaAccess() {
+  public function testInheritedFromParentMediaAccess() {
     $page = $this->getSession()->getPage();
     $assert_session = $this->assertSession();
 
@@ -77,10 +80,11 @@ class MediaPrivateAccessInheritFromRouteAccessTest extends MediaFunctionalTestBa
     ]);
     $user_media->save();
 
-    // Set access mode on our type to be "Inherited from route".
+    // Set access mode on our type to be "Inherited from parent".
     $this->drupalLogin($this->adminUser);
     $this->drupalGet('/admin/config/media/media-private-access');
-    $page->selectFieldOption($media_type->label(), MediaPrivateAccessControlHandler::MEDIA_PRIVATE_ACCESS_INHERITED_FROM_ROUTE);
+    $assert_session->optionExists($media_type->label(), MediaPrivateAccessControlHandler::MEDIA_PRIVATE_ACCESS_INHERITED_FROM_PARENT);
+    $page->selectFieldOption($media_type->label(), MediaPrivateAccessControlHandler::MEDIA_PRIVATE_ACCESS_INHERITED_FROM_PARENT);
     $page->pressButton('Save configuration');
 
     // At the standalone page only the admin and the owner have access to the
@@ -147,12 +151,23 @@ class MediaPrivateAccessInheritFromRouteAccessTest extends MediaFunctionalTestBa
     $this->drupalGet("/node/{$node1->id()}");
     $assert_session->elementContains('css', '.field--name-field-media', $media->label());
     $assert_session->elementContains('css', '.field--name-field-media', $user_media->label());
-    // If the user can see the node, they can also see the assets.
+    // If the user can see the parent, they can also see the assets.
     $this->drupalLogin($this->nonAdminUser1);
     $this->drupalGet("/node/{$node1->id()}");
     $assert_session->elementContains('css', '.field--name-field-media', $media->label());
     $assert_session->elementContains('css', '.field--name-field-media', $user_media->label());
-    // Even though the standalone entity is still unaccessible to this user.
+    // Access to the standalone entity is also granted for the user that can
+    // see the parent.
+    $this->drupalGet('media/' . $media->id());
+    $assert_session->statusCodeEquals(200);
+    $this->drupalGet('media/' . $user_media->id());
+    $assert_session->statusCodeEquals(200);
+
+    // If a user has no longer access to the parent, the standalone access is
+    // now denied.
+    /** @var \Drupal\user\RoleInterface $role */
+    $role = Role::load(RoleInterface::AUTHENTICATED_ID);
+    $role->revokePermission('access content')->save();
     $this->drupalGet('media/' . $media->id());
     $assert_session->statusCodeEquals(403);
     $this->drupalGet('media/' . $user_media->id());

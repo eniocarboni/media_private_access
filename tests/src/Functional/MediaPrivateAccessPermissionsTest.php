@@ -3,6 +3,7 @@
 namespace Drupal\Tests\media_private_access\Functional;
 
 use Drupal\media\Entity\Media;
+use Drupal\media_private_access\MediaPrivateAccessControlHandler;
 use Drupal\Tests\media\Functional\MediaFunctionalTestBase;
 use Drupal\Tests\system\Functional\Cache\AssertPageCacheContextsAndTagsTrait;
 use Drupal\user\Entity\Role;
@@ -92,7 +93,7 @@ class MediaPrivateAccessPermissionsTest extends MediaFunctionalTestBase {
     // Set access mode on our type to be "Permission-based".
     $this->drupalLogin($this->adminUser);
     $this->drupalGet('/admin/config/media/media-private-access');
-    $page->selectFieldOption($media_type->label(), 'permission');
+    $page->selectFieldOption($media_type->label(), MediaPrivateAccessControlHandler::MEDIA_PRIVATE_ACCESS_PERMISSION);
     $page->pressButton('Save configuration');
 
     // Now only the admin should have access to both assets.
