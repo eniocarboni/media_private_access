@@ -125,9 +125,11 @@ class MediaPrivateAccessControlHandler extends MediaAccessControlHandler impleme
       case self::MEDIA_PRIVATE_ACCESS_INHERITED_FROM_ROUTE:
         $route_entity = media_private_access_get_route_entity();
         if ($route_entity) {
-          // We don't want a recursive loop when visiting the media canonical
-          // route. If the user got here they don't have administer permissions
-          // neither are owners, so we just deny access.
+          // At this point we will delegate access to the route entity. However,
+          // if the user is visiting the canonical media page (/media/{$id}),
+          // the route entity is the same as the entity we are originally
+          // checking access for. If we reached this point in code, the user is
+          // not an administrator nor the owner, so we can safely deny access.
           if ($route_entity->getEntityTypeId() == 'media' && $route_entity->id() == $entity->id()) {
             return AccessResult::forbidden('Access to this media standalone is only granted to administrators and owners.');
           }
