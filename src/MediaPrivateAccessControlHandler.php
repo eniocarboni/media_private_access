@@ -91,16 +91,16 @@ class MediaPrivateAccessControlHandler extends MediaAccessControlHandler impleme
    * {@inheritdoc}
    */
   protected function checkAccess(EntityInterface $entity, $operation, AccountInterface $account) {
+    // Update and delete operations are managed by the original handler.
+    if ($operation != 'view') {
+      return parent::checkAccess($entity, $operation, $account);
+    }
+
     // Administrators don't need to go through all this.
     if ($account->hasPermission('administer media')) {
       return AccessResult::allowed()
         ->cachePerPermissions()
         ->addCacheableDependency($entity);
-    }
-
-    // Update and delete operations are managed by the original handler.
-    if ($operation != 'view') {
-      return parent::checkAccess($entity, $operation, $account);
     }
 
     // The owner can always view their own entities.
