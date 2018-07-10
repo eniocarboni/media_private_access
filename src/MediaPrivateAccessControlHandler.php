@@ -123,71 +123,106 @@ class MediaPrivateAccessControlHandler extends MediaAccessControlHandler impleme
           ->addCacheableDependency($entity);
 
       case self::MEDIA_PRIVATE_ACCESS_INHERITED_FROM_ROUTE:
-        $route_entity = media_private_access_get_route_entity();
-        if ($route_entity) {
-          // At this point we will delegate access to the route entity. However,
-          // if the user is visiting the canonical media page (/media/{$id}),
-          // the route entity is the same as the entity we are originally
-          // checking access for. If we reached this point in code, the user is
-          // not an administrator nor the owner, so we can safely deny access.
-          if ($route_entity->getEntityTypeId() == 'media' && $route_entity->id() == $entity->id()) {
-            return AccessResult::forbidden('Access to this media standalone is only granted to administrators and owners.');
-          }
-          return $route_entity->access($operation, $account, TRUE);
-        }
-        // In all non-entity routes, access would already have been granted
-        // above for admins and owners, so here we don't allow anything else.
-        return AccessResult::forbidden('Access to this media is only granted to administrators and owners.');
+        return $this->checkTopRouteViewAccess($entity, $account);
 
       case self::MEDIA_PRIVATE_ACCESS_INHERITED_FROM_PARENT:
-        // If entity_usage is not available or not the correct version, log an
-        // error message and deny access.
-        $tracking_available = FALSE;
-        if ($this->moduleHandler->moduleExists('entity_usage')) {
-          $usage_service = \Drupal::service('entity_usage.usage');
-          if (method_exists($usage_service, 'listSources')) {
-            $tracking_available = TRUE;
-          }
-        }
-        if (!$tracking_available) {
-          $this->logger->error('Trying to use access mode <em>Inherited from immediate parent</em> but the Entity Usage module was not found or not correct version.');
-          return AccessResult::forbidden('Could not detect the parent(s) of this media asset, please contact your system administrator.');
-        }
-        $sources = $usage_service->listSources($entity);
-        if (empty($sources)) {
-          return AccessResult::forbidden('Access to media assets with no usages are only granted to administrators and owners.');
-        }
-
-        // Access will be granted if at least one source grants access on its
-        // default revision.
-        foreach ($sources as $source_type_id => $usages) {
-          foreach ($usages as $source_id => $records) {
-            $source = $this->entityTypeManager->getStorage($source_type_id)->load($source_id);
-            if ($source && ($source instanceof RevisionableInterface)) {
-              $used_in_default_revision = FALSE;
-              foreach ($records as $record) {
-                if ($record['source_vid'] == $source->getRevisionId()) {
-                  $used_in_default_revision = TRUE;
-                  break;
-                }
-              }
-              if ($used_in_default_revision && $source->access($operation, $account)) {
-                // @todo is it worth caching this?
-                return AccessResult::allowed();
-              }
-            }
-            elseif ($source && $source->access($operation, $account)) {
-              // @todo is it worth caching this?
-              return AccessResult::allowed();
-            }
-          }
-        }
-        return AccessResult::forbidden('Access to this media asset is restricted to administrators and owners.');
+        return $this->checkParentViewAccess($entity, $account);
 
       case self::MEDIA_PRIVATE_ACCESS_DEFAULT:
       default:
         return parent::checkAccess($entity, $operation, $account);
     }
+  }
+
+  /**
+   * Checks view access using the "Inherit from top-level route" mode.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *   The entity we are checking access for.
+   * @param \Drupal\Core\Session\AccountInterface $account
+   *   The user account to check access for.
+   *
+   * @return bool|\Drupal\Core\Access\AccessResultForbidden|\Drupal\Core\Access\AccessResultInterface
+   *   Will grant access only when this is being checked in a content entity
+   *   route (different than this media's route), and the user has view access
+   *   to the top-level entity as well.
+   */
+  protected function checkTopRouteViewAccess(EntityInterface $entity, AccountInterface $account) {
+    $route_entity = media_private_access_get_route_entity();
+    if ($route_entity) {
+      // At this point we will delegate access to the route entity. However,
+      // if the user is visiting the canonical media page (/media/{$id}),
+      // the route entity is the same as the entity we are originally
+      // checking access for. If we reached this point in code, the user is
+      // not an administrator nor the owner, so we can safely deny access.
+      if ($route_entity->getEntityTypeId() == 'media' && $route_entity->id() == $entity->id()) {
+        return AccessResult::forbidden('Access to this media standalone is only granted to administrators and owners.');
+      }
+      return $route_entity->access('view', $account, TRUE);
+    }
+    // In all non-entity routes, access would already have been granted
+    // above for admins and owners, so here we don't allow anything else.
+    return AccessResult::forbidden('Access to this media is only granted to administrators and owners.');
+  }
+
+  /**
+   * Checks view access using the "Inherit from top-level route" mode.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *   The entity we are checking access for.
+   * @param \Drupal\Core\Session\AccountInterface $account
+   *   The user account to check access for.
+   *
+   * @return \Drupal\Core\Access\AccessResultAllowed|\Drupal\Core\Access\AccessResultForbidden
+   *   Will grant access whenever a "parent" entity, on its default revision,
+   *   grants view access to the current user as well. If no "parent" entity
+   *   could be found, or if the reference is not present on the parent's
+   *   default revision, access will be denied.
+   */
+  protected function checkParentViewAccess(EntityInterface $entity, AccountInterface $account) {
+    // If entity_usage is not available or not the correct version, log an
+    // error message and deny access.
+    $tracking_available = FALSE;
+    if ($this->moduleHandler->moduleExists('entity_usage')) {
+      $usage_service = \Drupal::service('entity_usage.usage');
+      if (method_exists($usage_service, 'listSources')) {
+        $tracking_available = TRUE;
+      }
+    }
+    if (!$tracking_available) {
+      $this->logger->error('Trying to use access mode <em>Inherited from immediate parent</em> but the Entity Usage module was not found or not correct version.');
+      return AccessResult::forbidden('Could not detect the parent(s) of this media asset, please contact your system administrator.');
+    }
+    $sources = $usage_service->listSources($entity);
+    if (empty($sources)) {
+      return AccessResult::forbidden('Access to media assets with no usages are only granted to administrators and owners.');
+    }
+
+    // Access will be granted if at least one source grants access on its
+    // default revision.
+    foreach ($sources as $source_type_id => $usages) {
+      foreach ($usages as $source_id => $records) {
+        $source = $this->entityTypeManager->getStorage($source_type_id)->load($source_id);
+        if ($source && ($source instanceof RevisionableInterface)) {
+          $used_in_default_revision = FALSE;
+          foreach ($records as $record) {
+            if ($record['source_vid'] == $source->getRevisionId()) {
+              $used_in_default_revision = TRUE;
+              break;
+            }
+          }
+          if ($used_in_default_revision && $source->access('view', $account)) {
+            // @todo is it worth caching this?
+            return AccessResult::allowed();
+          }
+        }
+        elseif ($source && $source->access('view', $account)) {
+          // @todo is it worth caching this?
+          return AccessResult::allowed();
+        }
+      }
+    }
+    return AccessResult::forbidden('Access to this media asset is restricted to administrators and owners.');
   }
 
 }

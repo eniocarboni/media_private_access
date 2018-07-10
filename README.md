@@ -82,8 +82,12 @@ inherited from the immediate parent, regardless of the rendering context.
 
 Once media items can be referenced from multiple places, the "immediate parent"
 entity can be several different ones. Access to the media item (in any context)
-will be granted if any of the "parents", on their default revision, grant access
-to the current user.
+will be granted if **any** of the "parents", on their default revision, grant
+access to the current user.
+
+Note that when using this access mode, Media items that are not referenced from
+any other entities (i.e. without "parents"), will only be accessible to
+administrators and owners.
 
 This access mode is only available if the contrib module
 [Entity Usage](https://drupal.org/project/entity_usage) is enabled on the site.
